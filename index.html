@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WIFF Miami — AR Mural Experience</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0b0f1f;
+      --surface: #111827;
+      --border: #1e2a45;
+      --yellow: #f5c518;
+      --yellow2: #ffd700;
+      --red: #e63946;
+      --text: #f0ede8;
+      --muted: #6b7a99;
+      --card: #131c30;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* grain */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* diagonal accent top */
+    .top-stripe {
+      height: 4px;
+      background: linear-gradient(90deg, #e63946 0%, #f5c518 33%, #4fc3f7 66%, #e63946 100%);
+      background-size: 200% 100%;
+      animation: slide 3s linear infinite;
+    }
+    @keyframes slide { to { background-position: -200% 0; } }
+
+    /* loading */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+    }
+    #loading.hide { opacity: 0; pointer-events: none; }
+
+    .wiff-logo-load {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      letter-spacing: 6px;
+      color: var(--yellow);
+    }
+    .wiff-logo-load span { color: var(--text); }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 2px solid var(--border);
+      border-top-color: var(--yellow);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-size: 11px; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    /* expired / invalid */
+    .fullscreen-msg {
+      display: none;
+      position: fixed; inset: 0;
+      background: var(--bg);
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px; gap: 16px;
+    }
+    .fullscreen-msg.show { display: flex; }
+
+    .msg-icon { font-size: 52px; margin-bottom: 8px; }
+    .msg-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(36px, 8vw, 60px);
+      letter-spacing: 3px; color: var(--yellow);
+    }
+    .msg-sub {
+      font-size: 15px; color: var(--muted);
+      max-width: 340px; line-height: 1.7;
+    }
+
+    /* main */
+    #main-content { display: none; opacity: 0; transition: opacity 0.6s ease; }
+    #main-content.show { display: block; }
+    #main-content.visible { opacity: 1; }
+
+    /* nav bar */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      max-width: 720px; margin: 0 auto;
+    }
+
+    .nav-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px; letter-spacing: 4px;
+      color: var(--yellow);
+    }
+    .nav-logo span { color: var(--text); }
+
+    .nav-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      background: #22c55e; border-radius: 50%;
+      animation: pulse 1.5s ease infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:0.4; transform:scale(0.75); }
+    }
+
+    /* hero */
+    .hero {
+      max-width: 720px; margin: 0 auto;
+      padding: 40px 24px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-eyebrow {
+      font-size: 11px; letter-spacing: 5px;
+      text-transform: uppercase; color: var(--yellow);
+      margin-bottom: 14px;
+    }
+
+    .hero-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(52px, 13vw, 100px);
+      line-height: 0.88; letter-spacing: 2px;
+      margin-bottom: 24px;
+    }
+    .hero-title .line2 { color: var(--yellow); }
+    .hero-title .line3 { color: var(--muted); font-size: 0.5em; letter-spacing: 6px; }
+
+    .access-row {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 10px;
+    }
+
+    .access-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #1a1f00; border: 1px solid var(--yellow);
+      border-radius: 4px; padding: 7px 14px;
+      font-size: 12px; letter-spacing: 1px; color: var(--yellow);
+    }
+
+    .expires-note {
+      font-size: 13px; color: var(--muted); line-height: 1.6;
+      margin-top: 10px;
+    }
+    .expires-note strong { color: var(--text); }
+
+    /* countdown */
+    .countdown-block {
+      max-width: 720px; margin: 0 auto;
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+
+    .countdown-label {
+      font-size: 11px; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .countdown-digits {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px; letter-spacing: 4px;
+      color: var(--yellow);
+    }
+
+    .progress-wrap { flex: 1; min-width: 160px; }
+    .progress-track {
+      height: 3px; background: var(--border);
+      border-radius: 2px; overflow: hidden; margin-top: 6px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--yellow), var(--yellow2));
+      transition: width 1s linear;
+    }
+
+    /* how to use */
+    .how-block {
+      max-width: 720px; margin: 0 auto;
+      padding: 28px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .block-label {
+      font-size: 11px; letter-spacing: 4px;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+
+    .step {
+      display: flex; align-items: flex-start;
+      gap: 14px; font-size: 14px; color: #8899bb; line-height: 1.5;
+    }
+
+    .step-num {
+      width: 24px; height: 24px; flex-shrink: 0;
+      border: 1px solid var(--yellow); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--yellow); margin-top: 1px;
+    }
+
+    /* murals */
+    .murals-block {
+      max-width: 720px; margin: 0 auto;
+      padding: 28px 24px 60px;
+    }
+
+    .mural-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 18px 20px;
+      margin-bottom: 10px;
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 16px;
+      animation: up 0.5s ease both;
+      transition: border-color 0.2s;
+    }
+    .mural-card:hover { border-color: var(--yellow); }
+
+    @keyframes up {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .mural-card:nth-child(1) { animation-delay: 0.08s; }
+    .mural-card:nth-child(2) { animation-delay: 0.16s; }
+    .mural-card:nth-child(3) { animation-delay: 0.24s; }
+    .mural-card:nth-child(4) { animation-delay: 0.32s; }
+
+    .mural-info { flex: 1; }
+    .mural-num {
+      font-size: 10px; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 3px;
+    }
+    .mural-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px; letter-spacing: 1px; margin-bottom: 2px;
+    }
+    .mural-desc { font-size: 12px; color: var(--muted); }
+
+    .ar-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--yellow); color: #0b0f1f;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 600;
+      padding: 10px 18px; border-radius: 6px;
+      text-decoration: none; white-space: nowrap; flex-shrink: 0;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .ar-btn:hover { background: var(--yellow2); transform: translateY(-1px); }
+    .ar-btn svg { width: 14px; height: 14px; }
+
+    footer {
+      text-align: center; padding: 0 24px 36px;
+      font-size: 11px; color: #2a3550;
+      letter-spacing: 2px; text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-stripe"></div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="wiff-logo-load">WIFF <span>Miami</span></div>
+  <div class="spinner"></div>
+  <div class="loading-text">Verifying Access</div>
+</div>
+
+<!-- EXPIRED -->
+<div id="expired-screen" class="fullscreen-msg">
+  <div class="msg-icon">🔒</div>
+  <div class="msg-title">Access Expired</div>
+  <div class="msg-sub">This AR tour link was valid only for the day of purchase. Purchase a new ticket at wiffmiami.com to access the AR Mural Experience.</div>
+</div>
+
+<!-- INVALID -->
+<div id="invalid-screen" class="fullscreen-msg">
+  <div class="msg-icon">⛔</div>
+  <div class="msg-title">Invalid Link</div>
+  <div class="msg-sub">This link is not recognized. Please check your WIFF Miami confirmation email for the correct AR access link.</div>
+</div>
+
+<!-- MAIN -->
+<div id="main-content">
+
+  <nav>
+    <div class="nav-logo">WIFF <span>Miami</span></div>
+    <div class="nav-badge"><div class="live-dot"></div> Access Active</div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-eyebrow">Wynwood International Food Festival · AR Mural Tour</div>
+    <h1 class="hero-title">
+      AR<br>
+      <span class="line2">Mural</span><br>
+      <span class="line3">Experience</span>
+    </h1>
+    <div class="access-row">
+      <div class="access-chip">
+        <div class="live-dot"></div>
+        Your Access is Live
+      </div>
+    </div>
+    <div class="expires-note">This link expires at <strong>midnight tonight</strong>. It is personal to your purchase and cannot be shared.</div>
+  </div>
+
+  <div class="countdown-block">
+    <div>
+      <div class="countdown-label">Time Remaining Today</div>
+      <div class="countdown-digits" id="countdown">--:--:--</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="countdown-label">Day Progress</div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="how-block">
+    <div class="block-label">How to Use Your AR Tour</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>Walk up to any mural listed below during your WIFF Miami tour.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>Tap <strong style="color:var(--text)">View AR</strong> next to that mural's name.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>Point your phone camera at the mural and watch it come alive.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="murals-block">
+    <div class="block-label">Murals on Your Tour</div>
+
+    <div class="mural-card">
+      <div class="mural-info">
+        <div class="mural-num">Mural 01</div>
+        <div class="mural-name">El Mac</div>
+        <div class="mural-desc">Figures & Roses · Wynwood Walls</div>
+      </div>
+      <a class="ar-btn" href="PASTE_EL_MAC_ARCODE_URL_HERE" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m0 4h4v-4m-4 0h-3"/></svg>
+        View AR
+      </a>
+    </div>
+
+    <div class="mural-card">
+      <div class="mural-info">
+        <div class="mural-num">Mural 02</div>
+        <div class="mural-name">TREK6</div>
+        <div class="mural-desc">Everlasting Bass · Wynwood</div>
+      </div>
+      <a class="ar-btn" href="PASTE_TREK6_ARCODE_URL_HERE" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m0 4h4v-4m-4 0h-3"/></svg>
+        View AR
+      </a>
+    </div>
+
+    <div class="mural-card">
+      <div class="mural-info">
+        <div class="mural-num">Mural 03</div>
+        <div class="mural-name">Favela Painting</div>
+        <div class="mural-desc">Color Grid · Wynwood Bakery</div>
+      </div>
+      <a class="ar-btn" href="PASTE_FAVELA_ARCODE_URL_HERE" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m0 4h4v-4m-4 0h-3"/></svg>
+        View AR
+      </a>
+    </div>
+
+    <div class="mural-card">
+      <div class="mural-info">
+        <div class="mural-num">Mural 04</div>
+        <div class="mural-name">Antonyo Marest</div>
+        <div class="mural-desc">Abstract Tower · Wynwood</div>
+      </div>
+      <a class="ar-btn" href="PASTE_ANTONYO_ARCODE_URL_HERE" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3m0 4h4v-4m-4 0h-3"/></svg>
+        View AR
+      </a>
+    </div>
+
+  </div>
+
+  <footer>WIFF Miami &nbsp;·&nbsp; AR Mural Experience &nbsp;·&nbsp; Single-day access &nbsp;·&nbsp; Non-transferable</footer>
+
+</div>
+
+<script>
+  function getParam(name) {
+    return new URLSearchParams(window.location.search).get(name);
+  }
+
+  function showScreen(id) {
+    document.getElementById('loading').classList.add('hide');
+    setTimeout(() => {
+      if (id === 'main') {
+        const el = document.getElementById('main-content');
+        el.classList.add('show');
+        setTimeout(() => el.classList.add('visible'), 50);
+      } else if (id === 'expired') {
+        document.getElementById('expired-screen').classList.add('show');
+      } else {
+        document.getElementById('invalid-screen').classList.add('show');
+      }
+    }, 900);
+  }
+
+  function validate() {
+    const token = getParam('token');
+    const expiry = getParam('expires');
+    if (!token || !expiry) { showScreen('invalid'); return; }
+    const now = Date.now();
+    const expiryTime = parseInt(expiry, 10);
+    if (isNaN(expiryTime) || now > expiryTime) { showScreen('expired'); return; }
+    showScreen('main');
+    startCountdown(expiryTime);
+  }
+
+  function startCountdown(expiryTime) {
+    function update() {
+      const remaining = expiryTime - Date.now();
+      if (remaining <= 0) {
+        document.getElementById('countdown').textContent = '00:00:00';
+        document.getElementById('progress-fill').style.width = '0%';
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('expired-screen').classList.add('show');
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      document.getElementById('countdown').textContent =
+        String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      const pct = Math.max(0, (remaining / 86400000) * 100);
+      document.getElementById('progress-fill').style.width = pct + '%';
+      setTimeout(update, 1000);
+    }
+    update();
+  }
+
+  validate();
+</script>
+</body>
+</html>
